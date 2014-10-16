@@ -12,12 +12,15 @@ from aws_credentials import AWS
 
 # Let's generalize it!
 argp = argparse.ArgumentParser()
-argp.add_argument('-r', '--regions', help='Region(s) to poll. Use multiple -r arguments to specify multiple regions', required=True, action='append')
+argp.add_argument('-r', '--region', help='Region to poll.', dest='region', required=True)
 argp.add_argument('-d', '--domain', help='(Sub)domain to be appended to AWS instance name, ex: ec2.mydomain.com', required=True)
-argp.add_argument('-D', '--directory', help='Path to zone files directory', required=True)
+argp.add_argument('-D', '--directory', help='Path to zone files directory', required=True, metavar='DIR')
 argp.add_argument('-z', '--zone', help='Zone file name within --directory path.', required=True)
 argp.add_argument('-R', '--reload-bind', help='Reload bind at end of script run', dest='reload_bind', action='store_true', default=False)
 argp.add_argument('-F', '--force', help='Run as not root', action='store_true')
+# TODO allow standard ENV vars for AWS API access
+argp.add_argument('-K', '--aws-key', help='AWS API access key', dest='aws_key')
+argp.add_argument('-S', '--aws-secret-key', help='AWS API secret key', dest='aws_secret')
 args = argp.parse_args()
 
 # Run as root
@@ -27,13 +30,13 @@ if os.getuid() != 0 and not args.force:
 
 # Collect instance info from AWS API
 instances = []
-for region in args.regions:
-    conn = boto.ec2.connect_to_region(region, aws_access_key_id=AWS['access_key'], aws_secret_access_key=AWS['secret_key'])
-    r = conn.get_all_instances()
+# TODO check for and handle auth issues
+conn = boto.ec2.connect_to_region(args.region, aws_access_key_id=AWS['access_key'], aws_secret_access_key=AWS['secret_key'])
+r = conn.get_all_instances()
 
-    for res in r:
-        for ins in res.instances:
-            instances.append(ins)
+for res in r:
+    for ins in res.instances:
+        instances.append(ins)
 
 domain_zonefile_path = os.path.join(args.directory, args.zone)
 if not os.path.exists(domain_zonefile_path):
